@@ -3,7 +3,7 @@
 ORIGINAL_DIR=$(pwd)
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 SCRIPT_NAME="$(basename "$0")"
-DIR_SRC=/mnt/chaelab/rachelle/src
+# DIR_SRC=/mnt/chaelab/rachelle/src
 
 PREFIX_DEFAULT="analyseNGS"
 # FASTQ_TO_SAMPLE_DEFAULT="echo '%f_%f' | sed 's/_S0/_S/'"
@@ -18,13 +18,22 @@ maxEE_DEFAULT=2
 RM_PHIX_DEFAULT=TRUE
 MULTITHREAD_DEFAULT=TRUE
 ## blast options
-FA_REF_DEFAULT=/mnt/chaelab/shared/genomes/TAIR10/fasta/a_thaliana_all.fasta
-GFF_REF_DEFAULT=/mnt/chaelab/shared/genomes/TAIR10/features/TAIR10_GFF3_genes.gff
+if [[ "${HOSTNAME}" == 'chaelab-ws.nus.edu.sg' ]]; then
+    FA_REF_DEFAULT=/mnt/chaelab/shared/genomes/TAIR10/fasta/a_thaliana_all.fasta
+    GFF_REF_DEFAULT=/mnt/chaelab/shared/genomes/TAIR10/features/TAIR10_GFF3_genes.gff
+elif [[ "${HOSTNAME}" == 'chaelab2' ]]; then
+    FA_REF_DEFAULT=/media/HDD3/rachelle/data/genomes/Athaliana/TAIR10/a_thaliana_all.fasta
+    GFF_REF_DEFAULT=/media/HDD3/rachelle/data/genomes/Athaliana/TAIR10/TAIR10_GFF3_genes.gff
+fi
 BLAST_SHORT_THRESHOLD_DEFAULT=50
 ## read identity options
 EXCEL_GENE_PATTERN_DEFAULT='[^_]+$'
 ## misc paths
-CONDA_DEFAULT=/home/rachelle/miniconda3/condabin/conda
+if [[ "${HOSTNAME}" == 'chaelab-ws.nus.edu.sg' ]]; then
+    CONDA_DEFAULT=/home/rachelle/miniconda3/condabin/conda
+elif [[ "${HOSTNAME}" == 'chaelab2' ]]; then
+    CONDA_DEFAULT=/home/rachelle/programmes/Conda/miniconda3/bin/conda
+fi
 
 params=${@}
 
@@ -98,6 +107,7 @@ BLAST_SHORT_THRESHOLD="${BLAST_SHORT_THRESHOLD:-${BLAST_SHORT_THRESHOLD_DEFAULT}
 EXCEL_GENE_PATTERN="${EXCEL_GENE_PATTERN:-${EXCEL_GENE_PATTERN_DEFAULT}}"
 ## misc paths
 CONDA="${CONDA:-${CONDA_DEFAULT}}"
+
 
 ## write log
 script_path="$SCRIPT_DIR/${SCRIPT_NAME}"
