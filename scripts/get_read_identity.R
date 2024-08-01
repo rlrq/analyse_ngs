@@ -1,4 +1,4 @@
-#!/usr/bin/Rscript
+#!/usr/bin/env Rscript
 
 library(optparse)
 
@@ -43,10 +43,10 @@ if (!is.na(args$dir_blast)){
 if (!is.na(args$excel_meta)){
     excel_meta <- normalizePath(args$excel_meta)
 } else {
-    stop("Excel file of metadata must be provided. Use '--excel <PATH>'.")
+    stop("TSV file of metadata must be provided. Use '--metadata <PATH>'.")
 }
 
-library(tidyverse)
+suppressMessages(library(tidyverse))
 
 mkpath <- function(...){
     paste(..., sep = '/')
@@ -104,7 +104,7 @@ summarise_reads <- function(sample_id, df.meta, dir_summary, dir_blast, valid.ge
     ## get 
     total.reads <- df.sum %>% dplyr::pull(reads) %>% sum
     ## merge df.meta genes with valid.genes if df.meta is not NA
-    if (!is.na(df.meta)){
+    if (!is.null(df.meta)){
         valid.genes <- c(valid.genes,
                          df.meta %>%
                          dplyr::filter(fastq == fastq_id) %>%
@@ -178,7 +178,11 @@ dir_identity <- mkpath(args$dir_output, "identity")
 dir.create(dir_identity, showWarnings = FALSE, recursive = TRUE)
 
 ## parse metadata from Excel sheet
-df.meta <- parse_meta(args$excel_meta) %>%
+## df.meta <- parse_meta(args$excel_meta) %>%
+##     dplyr::arrange(fastq) %>%
+##     dplyr::mutate(gene = str_extract(PCR_Product_fa, args$gene_pattern)) %>%
+##     tidyr::separate_rows(gene, sep = ",")
+df.meta <- read.table(args$excel_meta, header = TRUE, sep = '\t', stringsAsFactors = FALSE) %>%
     dplyr::arrange(fastq) %>%
     dplyr::mutate(gene = str_extract(PCR_Product_fa, args$gene_pattern)) %>%
     tidyr::separate_rows(gene, sep = ",")

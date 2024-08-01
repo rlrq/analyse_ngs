@@ -5,11 +5,13 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 SCRIPT_NAME="$(basename "$0")"
 # DIR_SRC=/mnt/chaelab/rachelle/src
 
+# HOSTNAME=$(cat /etc/hostname)
+
 PREFIX_DEFAULT="analyseNGS"
 # FASTQ_TO_SAMPLE_DEFAULT="echo '%f_%f' | sed 's/_S0/_S/'"
 SAMPLE_ID_FORMAT_DEFAULT=1
-SKIP_TO_STR_DEFAULT="derep"
-STOP_AT_STR_DEFAULT="demultiplex"
+SKIP_TO_STR_DEFAULT="start"
+STOP_AT_STR_DEFAULT="end"
 ## derep options
 TRUNCATION_LENGTH_DEFAULT=70
 FASTQ_SUFFIX_PATTERN_DEFAULT='_L001_R\d_001'
@@ -30,9 +32,9 @@ BLAST_SHORT_THRESHOLD_DEFAULT=50
 EXCEL_GENE_PATTERN_DEFAULT='[^_]+$'
 ## misc paths
 if [[ "${HOSTNAME}" == 'chaelab-ws.nus.edu.sg' ]]; then
-    CONDA_DEFAULT=/home/rachelle/miniconda3/condabin/conda
+    CONDA_DEFAULT=/media/HDD3/rachelle/miniconda3/condabin/conda
 elif [[ "${HOSTNAME}" == 'chaelab2' ]]; then
-    CONDA_DEFAULT=/home/rachelle/programmes/Conda/miniconda3/bin/conda
+    CONDA_DEFAULT=/media/HDD3/rachelle/programmes/Conda/miniconda3/bin/conda
 fi
 
 params=${@}
@@ -60,7 +62,7 @@ while (( "$#" )); do
         --gff) GFF_REF="${2}";; ## path to reference GFF file
         --blast-short-threshold) BLAST_SHORT_THRESHOLD="${2}";; ## maximum length for blastn-short task
         ## read identity options
-        -e|--excel|-b|--booking-sheet) EXCEL="${2}";; ## path to Excel sheet of ngs metadata
+        -e|--excel|-b|--booking-sheet|--amplicon_book) EXCEL="${2}";; ## path to Excel sheet of ngs metadata
         -n|-s|--sheetname|--sheet) EXCEL_SHEETNAME="${2}";; ## name of Excel sheet containing metadata
         --metadata|--excel-tsv) EXCEL_TSV="${2}";; ## path to tsv of Excel sheet of ngs metadata
         --excel-gene-pattern) EXCEL_GENE_PATTERN="${2}";; ## gene regex; used with str_extract to get gene ID from Excel file
@@ -111,21 +113,23 @@ CONDA="${CONDA:-${CONDA_DEFAULT}}"
 
 ## write log
 script_path="$SCRIPT_DIR/${SCRIPT_NAME}"
+mkdir -p ${DIR}
 printf -- "${params}\n\n${script_path}\n\n## general\n-d|--dir:\t${DIR}\n-p|--prefix:\t${PREFIX}\n--skip-to:\t${SKIP_TO_STR}\n--stop-at:\t${STOP_AT_STR}\n--sample-id-format:\t${SAMPLE_ID_FORMAT}\n\n## input\n-f|--fastq:\t${DIR_FASTQ}\n--gz:\t${GZ}\n\n## derep\n-t|--truncation:\t${TRUNCATION_LENGTH}\n-s|--fastq-suffix:\t${FASTQ_SUFFIX_PATTERN}\n\n## derep dada2\n--maxEE:\t${maxEE}\n--rm-phix:\t${RM_PHIX}\n-m|--multithread:\t${MULTITHREAD}\n\n## blast\n--assembly:\t${FA_REF}\n--gff:\t${GFF}\n--blast-short-threshold:\t${BLAST_SHORT_THRESHOLD}\n\n## read identity\n-e|--excel:\t${EXCEL}\n-n|--sheetname:\t${EXCEL_SHEETNAME}\n--metadata|--excel-tsv:\t${EXCEL_TSV}\n--excel-gene-pattern:\t${EXCEL_GENE_PATTERN}\n" > ${DIR}/${PREFIX}_rblast.log
 
 ## prep conda
-dir_conda="$(which ${CONDA})"
-source "${dir_conda%*/conda}/../etc/profile.d/conda.sh"
+source "$(dirname ${CONDA%*/conda})/etc/profile.d/conda.sh"
 
 ## set SKIP_TO and STOP_AT (i.e. manually implement some kind of goto/jump functionality)
 declare -A step_map=(
-    [parse-excel]=0
-    [derep]=1
-    [blast]=2
-    [intersect]=3
-    [id-seq]=4
-    [id-read]=5
-    [demultiplex]=6
+    [start]=0
+    [parse-excel]=1
+    [derep]=2
+    [blast]=3
+    [intersect]=4
+    [id-seq]=5
+    [id-read]=6
+    [demultiplex]=7
+    [end]=100
 )
 step_keys=( ${!step_map[@]} )
 # if [[ ! ${!step_map[@]} =~ ${SKIP_TO_STR} ]]; then
@@ -161,7 +165,11 @@ step="parse-excel"
 if [[ -z "${EXCEL_TSV}" ]]; then
     echo "--Parsing Excel file--"
     EXCEL_TSV=${DIR}/${PREFIX}.xlsx2csv.tsv
-    xlsx2csv -n "${EXCEL_SHEETNAME}" -d tab --ignoreempty --escape "${EXCEL}" | sed 's/\\n//g' > ${EXCEL_TSV}
+    conda activate analyse_ngs
+    # xlsx2csv -n "${EXCEL_SHEETNAME}" -d tab --ignoreempty --escape "${EXCEL}" | sed 's/\\n//g' > ${EXCEL_TSV}
+    ${SCRIPT_DIR}/scripts/booking_sheet_wide2long.py \
+                 --booking-excel ${EXCEL} --sheet ${EXCEL_SHEETNAME} --out ${EXCEL_TSV}
+    conda deactivate
 fi
 
 ## derep
@@ -172,11 +180,15 @@ if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${s
     if [[ -z ${GZ} ]]; then
         ${SCRIPT_DIR}/scripts/derep_fastq.R --fastq ${DIR_FASTQ} --out ${DIR} --prefix ${PREFIX} \
                      --truncation ${TRUNCATION_LENGTH} --fastq-suffix ${FASTQ_SUFFIX_PATTERN} \
-                     --maxEE ${maxEE} --rm-phix ${RM_PHIX} --multithread ${MULTITHREAD}
+                     --maxEE ${maxEE} --rm-phix ${RM_PHIX} --multithread ${MULTITHREAD} \
+                     --metadata ${EXCEL_TSV} --fastq2sample ${SCRIPT_DIR}/scripts/fastq2sample.R \
+                     --sample-id-format ${SAMPLE_ID_FORMAT}
     else
         ${SCRIPT_DIR}/scripts/derep_fastq.R --fastq ${DIR_FASTQ} --out ${DIR} --prefix ${PREFIX} \
                      --truncation ${TRUNCATION_LENGTH} --fastq-suffix ${FASTQ_SUFFIX_PATTERN} \
                      --maxEE ${maxEE} --rm-phix ${RM_PHIX} --multithread ${MULTITHREAD} \
+                     --metadata ${EXCEL_TSV} --fastq2sample ${SCRIPT_DIR}/scripts/fastq2sample.R \
+                     --sample-id-format ${SAMPLE_ID_FORMAT} \
                      --gz
     fi
     conda deactivate
@@ -217,6 +229,7 @@ fi
 step="intersect"
 if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${step}]} ]]; then
     echo "--Intersecting BLAST hits with annotations--"
+    conda activate analyse_ngs
     for tsv_blast in ${dir_blast}/*.blastn.tsv; do
         ## get coordinates of overlapping genes in BED format
         bedtools intersect -u -b ${tsv_blast} -a ${GFF_REF} | awk '$3=="gene"' | gff2bed | cut -f-4 > ${f_tmp}
@@ -225,9 +238,10 @@ if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${s
         bedtools intersect -loj -a ${tsv_blast} -b ${f_tmp} >> ${f_tmp2}
         ## move output to final destination
         mv ${f_tmp2} ${tsv_blast%*.tsv}.intersectGene.tsv
-        ## remove tmp files (including tsv_blast)
-        rm ${f_tmp} ${tsv_blast}
+        ## remove tmp files
+        rm ${f_tmp}
     done
+    conda deactivate
 fi
 
 ## get identity of truncated derep sequences
@@ -274,7 +288,7 @@ if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${s
     f_id=${dir_identity}/${grp_id}.identity-ontarget.txt
     ## iterate through fastq-id/gene-id combos
     while read -r fastq_id gene_id; do
-        # echo "${fastq_id}\t${gene_id}"
+        # echo "${fastq_id} ${gene_id}"
         ## set variables shared by given fastq-id/gene-id combo
         sample_id=$(fastq2sample ${SAMPLE_ID_FORMAT} ${fastq_id})
         declare -A fastq_filtered=(
@@ -289,6 +303,7 @@ if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${s
             f_map=${dir_derep}/${tmp_prefix}.identity.txt
             f_patterns_for_seqkit=${f_tmp}
             ## generate file for sequence patterns for seqkit
+            echo $fastq_id
             ${SCRIPT_DIR}/scripts/filter_derep_by_gene.py --fasta ${fasta} --map ${f_map} \
                          --gene ${gene_id} --out ${f_patterns_for_seqkit}
             ## filter for sequences that best match the given gene with seqkit
@@ -318,4 +333,3 @@ if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${s
     rmdir ${dir_tmp}
     conda deactivate
 fi
-

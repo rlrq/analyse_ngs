@@ -1,4 +1,4 @@
-#!/usr/bin/Rscript
+#!/usr/bin/env Rscript
 
 library(optparse)
 
@@ -8,6 +8,12 @@ library(optparse)
 ## (also, zzOtherzz/YiYun/ploop_primer/src/derep_fastq.R)
 
 option_list <- list(
+    make_option(c("-m", "--metadata"), type = "character", dest = "excel_metadata",
+                help = "path to TSV of metadata (required)", metavar = "FILE"),
+    make_option(c("--fastq2sample"), type = "character", dest = "f_fastq2sample",
+                help = "path to fastq2sample.R (required)", metavar = "FILE"),
+    make_option(c("--sample-id-format"), type = "integer", dest = "sample_id_format", default = 1,
+                help = "sample ID format; see fastq2sample.R for formats (required)", metavar = "INT"),
     make_option(c("-f", "--fastq"), type = "character", dest = "dir_fastq",
                 help = "path to directory of fastq files (required)", metavar = "DIR"),
     make_option(c("-o", "--out"), type = "character", dest = "dir_output",
@@ -28,13 +34,19 @@ option_list <- list(
                 help = "maxEE parameter for dada2::filterAndTrim"),
     make_option(c("--rm-phix"), type = "logical", dest = "rm_phix", default = TRUE,
                 help = "rm.phix parameter for dada2::filterAndTrim"),
-    make_option(c("-m", "--multithread"), type = "logical", dest = "multithread", default = TRUE,
+    make_option(c("--multithread"), type = "logical", dest = "multithread", default = TRUE,
                 help = "multithread parameter for dada2::learnErrors")
 )
 parser <- OptionParser(option_list = option_list)
 args <- parse_args(parser)
 
 ## check argument
+if (is.na(args$excel_metadata)){
+    stop("TSV of metadata must be provided. Use '--metadata <FILE>'.")
+}
+if (is.na(args$f_fastq2sample)){
+    stop("Path to fastq2sample.R file must be provided. Use '--fastq2sample <FILE>'.")
+}
 if (!is.na(args$dir_fastq)){
     dir_fastq <- normalizePath(args$dir_fastq)
 } else {
@@ -50,8 +62,8 @@ trunc_len <- args$trunc_len
 fastq_suffix_pattern <- args$fastq_suffix_pattern
 
 ## import rest of packages
-library(tidyverse)
-library(dada2)
+suppressMessages(library(tidyverse))
+suppressMessages(library(dada2))
 
 ## get fastq file sample IDs
 if (args$gz){
@@ -61,6 +73,13 @@ if (args$gz){
 }
 samples <- list.files(dir_fastq, pattern = fastq_pattern) %>%
     str_extract(paste0("^.+(?=", fastq_suffix_pattern, ")")) %>% unique %>% sort
+
+## filter samples
+source(args$f_fastq2sample)
+valid.fastq <- read.table(args$excel_metadata, header = TRUE, sep = '\t', stringsAsFactors = FALSE) %>%
+    dplyr::pull(fastq) %>% unique()
+valid.samples <- valid.fastq %>% sapply(fastq2sample(args$sample_id_format))
+samples <- samples[samples %in% valid.samples]
 
 ## make fastq file names
 suffix_r1 <- str_replace(fastq_suffix_pattern, "R\\\\d", "R1")
@@ -102,7 +121,7 @@ derep_rvs <- derepFastq(filtered_rvs_reads, verbose = TRUE)
 names(derep_rvs) <- samples
 
 ## write derep to file
-library(seqinr)
+suppressMessages(library(seqinr))
 writeDerep <- function(dir_out, derep_fwd, derep_rvs = NULL){
     for (sample_id in names(derep_fwd)){
         print(sample_id)
