@@ -30,10 +30,11 @@ amplicon_book_long[df_obj.columns] = df_obj.apply(lambda x: x.str.strip())
 amplicon_book_long = amplicon_book_long.reset_index()
 
 ## subset columns & remove null rows
-amplicon_book_long = amplicon_book_long[['fastq', 'PCR_Product_fa', 'Guide']] 
+amplicon_book_long = amplicon_book_long[['fastq', 'PCR_Product_fa', 'Guide', 'accession/gene']] 
 amplicon_book_long = amplicon_book_long[amplicon_book_long.PCR_Product_fa.notnull()]
 amplicon_book_long['PCR_Product_fa'] = amplicon_book_long['PCR_Product_fa'].str.replace('.fa$', '', regex=True)
 amplicon_book_long['Guide'] = amplicon_book_long['Guide'].str.upper()
+amplicon_book_long['Guide'] = amplicon_book_long['Guide'].str.upper().str.strip()
 
 ## write to file
 amplicon_book_long.to_csv(args.fout, sep='\t')

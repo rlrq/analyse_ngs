@@ -8,3 +8,4 @@ Process NGS reads from paired fastq files & booking sheet, for chaelab.
 4. Map unique read sequences to best hit's gene ID ('.' for hits not overlapping with genes)
 5. Summarise abundance of reads mapped to each gene per run
 6. Demultiplex by separating reads by mapped gene using seqkit, retained only if genes are on-target per booking sheet
+7. Execute CRISPRESSO2 on demultiplexed reads
