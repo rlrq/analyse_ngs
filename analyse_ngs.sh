@@ -8,6 +8,7 @@ SCRIPT_NAME="$(basename "$0")"
 # HOSTNAME=$(cat /etc/hostname)
 
 PREFIX_DEFAULT="analyseNGS"
+GZ_DEFAULT=1
 # FASTQ_TO_SAMPLE_DEFAULT="echo '%f_%f' | sed 's/_S0/_S/'"
 SAMPLE_ID_FORMAT_DEFAULT=1
 SKIP_TO_STR_DEFAULT="start"
@@ -42,17 +43,18 @@ params=${@}
 while (( "$#" )); do
     case "$1" in
         ## general parameters
-        -d|--dir) DIR=$(realpath "${2}");; ## output directory
+        -d|--dir|--output_dir) DIR=$(realpath "${2}");; ## output directory
         -p|--prefix) PREFIX="${2}";; ## output prefix
         --skip-to|--start-at) SKIP_TO_STR="${2}";; ## valid inputs: derep, blast, intersect, id-seq, id-read, demultiplex
         --stop-at) STOP_AT_STR="${2}";; ## valid inputs: derep, blast, intersect, id-seq, id-read, demultiplex
         --sample-id-format) SAMPLE_ID_FORMAT="${2}";; ## id of sample ID format (default=1); see scripts/fastq2sample.sh for what each id's format is
+        --fastq-suffix) FASTQ_SUFFIX_PATTERN="${2}";; ## fastq file suffix regex; use 'R\d' pattern for R1/R2 matching; do not include extensions '.fastq' and/or '.gz'
         ## input parameters
         -f|--fastq|--fastq_dir) DIR_FASTQ=$(realpath "${2}");; ## path to directory containing fastq files
         --gz) GZ=1;; ## raise if fastq files are gzipped (extension fastq.gz)
+        --unzipped) GZ=0;; ## raise if fastq files are not gzipped (extension fastq)
         ## derep options
         -t|--truncation) TRUNCATION_LENGTH="${2}";; ## trim reads to first X bp for analysis
-        --fastq-suffix) FASTQ_SUFFIX_PATTERN="${2}";; ## fastq file suffix regex; use 'R\d' pattern for R1/R2 matching; do not include extensions '.fastq' and/or '.gz'
         ## derep dada2 parameters
         --maxEE) maxEE="${2}";; ## maxEE parameter for dada2::filterAndTrim
         --rm-phix) RM_PHIX="${2}";; ## rm.phix parameter for dada2::filterAndTrim
@@ -69,8 +71,8 @@ while (( "$#" )); do
         ## demultiplexing options (none lol)
         ## misc paths
         --conda) CONDA="${2}";; ## path to conda executable
-        # -h|--help) man -l ${SCRIPT_DIR}/MANUAL_get_seqs.1; exit 0;;
-        --readme) cat ${SCRIPT_DIR}/README; exit 0;;
+        -h|--help) man -l ${SCRIPT_DIR}/MANUAL_analyse_ngs.1; exit 0;;
+        --readme) cat ${SCRIPT_DIR}/README.md; exit 0;;
     esac
     shift
 done
@@ -94,6 +96,7 @@ PREFIX=$(echo "${PREFIX:-${EXCEL_SHEETNAME:-${PREFIX_DEFAULT}}}" | sed 's/ /_/g'
 SAMPLE_ID_FORMAT="${SAMPLE_ID_FORMAT:-${SAMPLE_ID_FORMAT_DEFAULT}}"
 SKIP_TO_STR="${SKIP_TO_STR:-${SKIP_TO_STR_DEFAULT}}"
 STOP_AT_STR="${STOP_AT_STR:-${STOP_AT_STR_DEFAULT}}"
+GZ=${GZ:-${GZ_DEFAULT}}
 ## derep options
 TRUNCATION_LENGTH="${TRUNCATION_LENGTH:-${TRUNCATION_LENGTH_DEFAULT}}"
 FASTQ_SUFFIX_PATTERN="${FASTQ_SUFFIX_PATTERN:-${FASTQ_SUFFIX_PATTERN_DEFAULT}}"
@@ -118,7 +121,7 @@ fi
 ## write log
 script_path="$SCRIPT_DIR/${SCRIPT_NAME}"
 mkdir -p ${DIR}/logfile
-printf -- "${params}\n\n${script_path}\n\n## general\n-d|--dir:\t${DIR}\n-p|--prefix:\t${PREFIX}\n--skip-to|--start-at:\t${SKIP_TO_STR}\n--stop-at:\t${STOP_AT_STR}\n--sample-id-format:\t${SAMPLE_ID_FORMAT}\n\n## input\n-f|--fastq|--fastq_dir:\t${DIR_FASTQ}\n--gz:\t${GZ}\n\n## derep\n-t|--truncation:\t${TRUNCATION_LENGTH}\n-s|--fastq-suffix:\t${FASTQ_SUFFIX_PATTERN}\n\n## derep dada2\n--maxEE:\t${maxEE}\n--rm-phix:\t${RM_PHIX}\n-m|--multithread:\t${MULTITHREAD}\n\n## blast\n--assembly:\t${FA_REF}\n--gff:\t${GFF}\n--blast-short-threshold:\t${BLAST_SHORT_THRESHOLD}\n\n## read identity\n-e|--excel|-b|--booking-sheet|--amplicon_book:\t${EXCEL}\n-n|-s|--sheetname|--sheet:\t${EXCEL_SHEETNAME}\n--metadata|--excel-tsv:\t${EXCEL_TSV}\n--excel-gene-pattern:\t${EXCEL_GENE_PATTERN}\n" > ${DIR}/logfile/${PREFIX}_rblast.log
+printf -- "${params}\n\n${script_path}\n\n## general\n-d|--dir|--output_dir:\t${DIR}\n-p|--prefix:\t${PREFIX}\n--skip-to|--start-at:\t${SKIP_TO_STR}\n--stop-at:\t${STOP_AT_STR}\n--sample-id-format:\t${SAMPLE_ID_FORMAT}\n\n## input\n-f|--fastq|--fastq_dir:\t${DIR_FASTQ}\n--gz:\t${GZ}\n\n## derep\n-t|--truncation:\t${TRUNCATION_LENGTH}\n-s|--fastq-suffix:\t${FASTQ_SUFFIX_PATTERN}\n\n## derep dada2\n--maxEE:\t${maxEE}\n--rm-phix:\t${RM_PHIX}\n-m|--multithread:\t${MULTITHREAD}\n\n## blast\n--assembly:\t${FA_REF}\n--gff:\t${GFF}\n--blast-short-threshold:\t${BLAST_SHORT_THRESHOLD}\n\n## read identity\n-e|--excel|-b|--booking-sheet|--amplicon_book:\t${EXCEL}\n-n|-s|--sheetname|--sheet:\t${EXCEL_SHEETNAME}\n--metadata|--excel-tsv:\t${EXCEL_TSV}\n--excel-gene-pattern:\t${EXCEL_GENE_PATTERN}\n" > ${DIR}/logfile/${PREFIX}_rblast.log
 
 ## prep conda
 source "$(dirname ${CONDA%*/conda})/etc/profile.d/conda.sh"
@@ -170,7 +173,7 @@ step="parse-excel"
 if [[ -z "${EXCEL_TSV}" ]]; then
     echo "--Parsing Excel file--"
     mkdir -p ${dir_metadata}
-    EXCEL_TSV=${dir_metadata}/${PREFIX}.xlsx2csv.tsv
+    EXCEL_TSV=${dir_metadata}/${PREFIX}.tsv
     conda activate analyse_ngs
     # xlsx2csv -n "${EXCEL_SHEETNAME}" -d tab --ignoreempty --escape "${EXCEL}" | sed 's/\\n//g' > ${EXCEL_TSV}
     ${SCRIPT_DIR}/scripts/booking_sheet_wide2long.py \
@@ -362,3 +365,5 @@ if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${s
     rmdir ${dir_tmp}
     conda deactivate
 fi
+
+exit 0
