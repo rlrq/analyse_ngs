@@ -38,7 +38,7 @@ elif [[ "${HOSTNAME}" == 'chaelab2' ]]; then
     CONDA_DEFAULT=/media/HDD3/rachelle/programmes/Conda/miniconda3/bin/conda
 fi
 ## crispresso2 wrapper options
-CRISPRESSO_WRAPPER_VERSION_DEFAULT=4
+CRISPRESSO_WRAPPER_VERSION_DEFAULT='4-2'
 EDITOR_DEFAULT=Cas9
 
 params=${@}
@@ -384,12 +384,15 @@ fi
 step="crispresso"
 if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${step}]} ]]; then
     echo "--Executing Crispresso2 on demultiplexed files--"
+    if [[ "${EDITOR}" == 'ABE' ]]; then
+        preset_args='--cleavage_offset -12 --quantification_window_size 6'
+    fi
     conda activate crispresso2_env
     mkdir -p ${dir_crispresso}
     ${SCRIPT_DIR}/scripts/Crispresso2_wrapper/Crispresso2_wrapper_v${CRISPRESSO_WRAPPER_VERSION}.py \
                  --excel-tsv ${EXCEL_TSV} --PCR_Product_fa_gene_pattern "${EXCEL_GENE_PATTERN_DEFAULT}" \
                  --fastq_dir ${dir_demultiplex} --amplicon_fasta_dir ${DIR_AMPLICON} \
-                 --output_dir ${dir_crispresso} --editor ${EDITOR}
+                 --output_dir ${dir_crispresso} ${preset_args}
     conda deactivate
 fi
 
