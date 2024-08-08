@@ -12,7 +12,6 @@ analyse_ngs \- processes paired fastq files & booking sheet of NGS reads from ed
 \fB\-\fB\-amplicon_fasta_dir \fI DIR
 [\fIOPTION\fP]\&.\|.\|.\&
 
-
 .SH DESCRIPTION
 .B analyse_ngs
 processes NGS reads from paired fastq files & booking sheet, for chaelab. Use \-\-skip\-to and \-\-stop\-at to run subset of steps.
@@ -145,6 +144,13 @@ Crispresso2_wrapper version (default=4)
 .TP
 .B \-\-editor \fI string
 Editor, used to inform cleavage site and editing window. Valid values: Cas9, ABE (default=Cas9)
+.PP
+.nf
+.RS
+Cas9: <default CRISPResso2>
+ABE: \-\-cleavage_offset \-12 \-\-quantification_window_size 6
+.RE
+.fi
 .TP
 .B \-\-amplicon_fasta_dir \fI path
 Directory of amplicon FASTA files
