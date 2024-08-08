@@ -55,8 +55,8 @@ mkpath <- function(...){
 parse_blast <- function(fname){
     read.table(fname, header = TRUE, sep = '\t') %>%
         dplyr::group_by(qseqid) %>%
-        dplyr::mutate(bs.rank = order(order(bitscore, decreasing = TRUE)),
-                      gene = as.character(gene),
+        dplyr::slice_max(bitscore, n = 1) %>%
+        dplyr::mutate(gene = as.character(gene),
                       gchrom = as.character(gchrom))
 }
 
@@ -85,19 +85,17 @@ summarise_reads <- function(sample_id, df.meta, dir_summary, dir_blast, valid.ge
     ## parse files
     df.sum <- read.table(fname_sum, header = TRUE, sep = '\t')
     df.fwd <- parse_blast(fname_fwd) %>%
-        dplyr::select(qseqid, sstart, send, gene, gchrom, bs.rank, bitscore) %>%
+        dplyr::select(qseqid, sstart, send, gene, gchrom, bitscore) %>%
         dplyr::rename(fwd = qseqid, fstart = sstart, fend = send, fgene = gene, fchrom = gchrom,
-                      fbitscore = bitscore, frank = bs.rank) %>%
-        dplyr::filter(frank == 1)
+                      fbitscore = bitscore)
     df.rvs <- parse_blast(fname_rvs) %>%
-        dplyr::select(qseqid, sstart, send, gene, gchrom, bs.rank, bitscore) %>%
+        dplyr::select(qseqid, sstart, send, gene, gchrom, bitscore) %>%
         dplyr::rename(rvs = qseqid, rstart = sstart, rend = send, rgene = gene, rchrom = gchrom,
-                      rbitscore = bitscore, rrank = bs.rank) %>%
-        dplyr::filter(rrank == 1)
+                      rbitscore = bitscore)
     ## join fwd and rvs to read count summary file
     df.sum.full <- df.sum %>%
-        dplyr::left_join(df.fwd, by = "fwd") %>%
-        dplyr::left_join(df.rvs, by = "rvs") %>%
+        dplyr::left_join(df.fwd, by = "fwd", relationship = "many-to-many") %>%
+        dplyr::left_join(df.rvs, by = "rvs", relationship = "many-to-many") %>%
         dplyr::mutate(same.gene = fgene == rgene,
                       within.range = (fchrom == rchrom &
                                       abs(((fstart + fend)/2) - ((rstart + rend)/2)) < 400))
@@ -115,7 +113,7 @@ summarise_reads <- function(sample_id, df.meta, dir_summary, dir_blast, valid.ge
             dplyr::pull(gene)
     }
     valid.genes <- valid.genes %>% unique()
-    df.sum.filt <- df.sum.full %>%
+    df.sum.filt.fwd_rvs <- df.sum.full %>%
         dplyr::mutate(same.gene = sapply(same.gene, function(x){if(is.na(x)){FALSE}else{x}})) %>%
         dplyr::mutate(gene = sapply(1:nrow(.), function(i){
             if (.[i,"same.gene"]) {.[i,"fgene"]}
@@ -124,11 +122,29 @@ summarise_reads <- function(sample_id, df.meta, dir_summary, dir_blast, valid.ge
         dplyr::group_by(gene) %>%
         dplyr::summarise(g.reads = sum(reads)) %>%
         dplyr::ungroup() %>%
-        dplyr::rename(reads = g.reads) %>%
+        dplyr::rename(reads = g.reads)%>%
+        dplyr::mutate(read.type = "fwd_rvs")
+    df.sum.filt.fwd <- df.sum.full %>%
+        dplyr::select(fwd, rvs, fgene, reads) %>%
+        dplyr::distinct() %>%
+        dplyr::group_by(fgene) %>%
+        dplyr::summarise(reads = sum(reads)) %>%
+        dplyr::ungroup() %>%
+        dplyr::rename(gene = fgene) %>%
+        dplyr::mutate(read.type = "fwd")
+    df.sum.filt.rvs <- df.sum.full %>%
+        dplyr::select(fwd, rvs, rgene, reads) %>%
+        dplyr::distinct() %>%
+        dplyr::group_by(rgene) %>%
+        dplyr::summarise(reads = sum(reads)) %>%
+        dplyr::ungroup() %>%
+        dplyr::rename(gene = rgene) %>%
+        dplyr::mutate(read.type = "rvs")
+    df.sum.filt <- rbind(df.sum.filt.fwd_rvs, df.sum.filt.fwd, df.sum.filt.rvs) %>%
         dplyr::mutate(reads.freq = reads/total.reads,
                       valid.gene = gene %in% valid.genes,
                       fastq = fastq_id) %>%
-        dplyr::select(fastq, gene, reads, reads.freq, valid.gene)
+        dplyr::select(fastq, gene, read.type, reads, reads.freq, valid.gene)
     return(df.sum.filt)
 }
 
@@ -148,23 +164,27 @@ summarise_reads_multi <- function(fout, df.meta, dir_sum, dir_blast, valid.genes
                            dplyr::arrange(desc(reads)))
     }
     ## write
-    write.table(df.output %>% dplyr::mutate(valid.gene = sapply(valid.gene, function(x){ifelse(x, 'T', 'F')})),
+    write.table(df.output %>%
+                dplyr::filter(read.type == "fwd_rvs") %>%
+                dplyr::select(-c(read.type)) %>%
+                dplyr::mutate(valid.gene = sapply(valid.gene, function(x){ifelse(x, 'T', 'F')})),
                 file = fout, quote = FALSE, sep = '\t', row.names = FALSE)
     ## summarise whether each on-target gene is found in output and at what abundance/frequency
     if (!is.null(fout_ontarget)){
         df.filtered <- df.output %>%
-            dplyr::select(fastq, gene, reads, reads.freq) %>%
-            dplyr::mutate(
-                       fwd = sapply(gene, function(x){
-                           if(!str_detect(x, '_')){as.character(x)}else{str_split(x, '_')[[1]][[1]]}}),
-                       rvs = sapply(gene, function(x){
-                           if(!str_detect(x, '_')){as.character(x)}else{str_split(x, '_')[[1]][[2]]}})) %>%
-            dplyr::rename(fwd_rvs = gene) %>%
-            tidyr::gather(key = "read.type", value = "gene", fwd_rvs, fwd, rvs) %>%
-            dplyr::group_by(fastq, read.type, gene) %>%
-            dplyr::summarise(total.reads = sum(reads, na.rm = TRUE),
-                             total.reads.freq = sum(reads.freq, na.rm = TRUE)) %>%
-            dplyr::ungroup()
+            dplyr::select(fastq, gene, read.type, reads, reads.freq) %>%
+            ## dplyr::mutate(
+            ##            fwd = sapply(gene, function(x){
+            ##                if(!str_detect(x, '_')){as.character(x)}else{str_split(x, '_')[[1]][[1]]}}),
+            ##            rvs = sapply(gene, function(x){
+            ##                if(!str_detect(x, '_')){as.character(x)}else{str_split(x, '_')[[1]][[2]]}})) %>%
+            ## dplyr::rename(fwd_rvs = gene) %>%
+            ## tidyr::gather(key = "read.type", value = "gene", fwd_rvs, fwd, rvs) %>%
+            ## dplyr::group_by(fastq, read.type, gene) %>%
+            ## dplyr::summarise(total.reads = sum(reads, na.rm = TRUE),
+            ##                  total.reads.freq = sum(reads.freq, na.rm = TRUE)) %>%
+            ## dplyr::ungroup()
+            dplyr::rename(total.reads = reads, total.reads.freq = reads.freq)
         df.ontarget <- df.meta %>%
             dplyr::select(fastq, gene) %>%
             dplyr::distinct() %>%

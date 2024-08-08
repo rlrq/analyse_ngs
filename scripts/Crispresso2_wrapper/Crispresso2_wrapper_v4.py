@@ -24,6 +24,7 @@ parser.add_argument('--amplicon_book', help='Amplicon booking list in xlsx forma
 parser.add_argument('--sheet', help='Sheet name in the Amplicon booking list')
 parser.add_argument('--excel-tsv', '--amplicon_tsv', help='Amplicon booking sheet in long TSV format', dest = "amplicon_tsv")
 parser.add_argument('--fastq_name_format', type=int, help='Fastq file name format (default=2)', default=2)
+parser.add_argument('--editor', type=str, help='Editor. Valid values: Cas9, ABE (default=Cas9)', default="Cas9", dest = "editor")
 parser.add_argument('--PCR_Product_fa_gene_pattern', type=str, default='([^_]+)$', dest="gene_pattern",
                     help="pattern to extract gene from PCR_Product_fa column (default='([^_]+)$')")
 
@@ -39,6 +40,7 @@ sheet_name = args.sheet
 verbose = args.verbose == 'T'
 fastq_name_format = args.fastq_name_format
 gene_pattern = args.gene_pattern
+editor = args.editor
 
 ## ANALYSE_NGS MOD: modifications for analyse_ngs output compatibility
 amplicon_tsv_path = args.amplicon_tsv
@@ -156,6 +158,9 @@ def run_crispresso(row):
             '-o', os.path.join(output_dir, amplicon_fasta),
             '--file_prefix', fastq_prefix + '_' + amplicon_fasta,
         ]
+        
+        if editor == "ABE":
+            crispresso_command.extend(['--cleavage_offset', '-12', '--quantification_window_size', '6'])
         
         if not pd.isna(guide):
             crispresso_command.extend(['--guide_seq', guide])

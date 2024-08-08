@@ -39,6 +39,7 @@ elif [[ "${HOSTNAME}" == 'chaelab2' ]]; then
 fi
 ## crispresso2 wrapper options
 CRISPRESSO_WRAPPER_VERSION_DEFAULT=4
+EDITOR_DEFAULT=Cas9
 
 params=${@}
 
@@ -74,6 +75,7 @@ while (( "$#" )); do
         ## crispresso2 options
         --crispresso-wrapper-version) CRISPRESSO_WRAPPER_VERSION="${2}";; ## Crispresso2_wrapper version
         --amplicon|--amplicon_fasta_dir) DIR_AMPLICON=$(realpath "${2}");; ## directory of amplicon FASTA files
+        --editor) EDITOR="${2}";; ## valid values: ABE, Cas9
         ## misc paths
         --conda) CONDA="${2}";; ## path to conda executable
         -h|--help) man -l ${SCRIPT_DIR}/MANUAL_analyse_ngs.1; exit 0;;
@@ -117,6 +119,7 @@ BLAST_SHORT_THRESHOLD="${BLAST_SHORT_THRESHOLD:-${BLAST_SHORT_THRESHOLD_DEFAULT}
 EXCEL_GENE_PATTERN="${EXCEL_GENE_PATTERN:-${EXCEL_GENE_PATTERN_DEFAULT}}"
 ## crispresso2 wrapper options
 CRISPRESSO_WRAPPER_VERSION="${CRISPRESSO_WRAPPER_VERSION:-${CRISPRESSO_WRAPPER_VERSION_DEFAULT}}"
+EDITOR="${EDITOR:-${EDITOR_DEFAULT}}"
 ## misc paths
 CONDA="${CONDA:-${CONDA_DEFAULT}}"
 
@@ -128,7 +131,7 @@ fi
 ## write log
 script_path="$SCRIPT_DIR/${SCRIPT_NAME}"
 mkdir -p ${DIR}/logfile
-printf -- "${params}\n\n${script_path}\n\n## general\n-d|--dir|--output_dir:\t${DIR}\n-p|--prefix:\t${PREFIX}\n--skip-to|--start-at:\t${SKIP_TO_STR}\n--stop-at:\t${STOP_AT_STR}\n--sample-id-format:\t${SAMPLE_ID_FORMAT}\n\n## input\n-f|--fastq|--fastq_dir:\t${DIR_FASTQ}\n--gz:\t${GZ}\n\n## derep\n-t|--truncation:\t${TRUNCATION_LENGTH}\n-s|--fastq-suffix:\t${FASTQ_SUFFIX_PATTERN}\n\n## derep dada2\n--maxEE:\t${maxEE}\n--rm-phix:\t${RM_PHIX}\n-m|--multithread:\t${MULTITHREAD}\n\n## blast\n--assembly:\t${FA_REF}\n--gff:\t${GFF}\n--blast-short-threshold:\t${BLAST_SHORT_THRESHOLD}\n\n## read identity\n-e|--excel|-b|--booking-sheet|--amplicon_book:\t${EXCEL}\n-n|-s|--sheetname|--sheet:\t${EXCEL_SHEETNAME}\n--metadata|--excel-tsv:\t${EXCEL_TSV}\n--excel-gene-pattern:\t${EXCEL_GENE_PATTERN}\n\n## crispresso2 wrapper options\n--crispresso-wrapper-version:\t${CRISPRESSO_WRAPPER_VERSION}\n--amplicon_fasta_dir:\t${DIR_AMPLICON}\n" > ${DIR}/logfile/${PREFIX}_analyseNGS.log
+printf -- "${params}\n\n${script_path}\n\n## general\n-d|--dir|--output_dir:\t${DIR}\n-p|--prefix:\t${PREFIX}\n--skip-to|--start-at:\t${SKIP_TO_STR}\n--stop-at:\t${STOP_AT_STR}\n--sample-id-format:\t${SAMPLE_ID_FORMAT}\n\n## input\n-f|--fastq|--fastq_dir:\t${DIR_FASTQ}\n--gz:\t${GZ}\n\n## derep\n-t|--truncation:\t${TRUNCATION_LENGTH}\n-s|--fastq-suffix:\t${FASTQ_SUFFIX_PATTERN}\n\n## derep dada2\n--maxEE:\t${maxEE}\n--rm-phix:\t${RM_PHIX}\n-m|--multithread:\t${MULTITHREAD}\n\n## blast\n--assembly:\t${FA_REF}\n--gff:\t${GFF}\n--blast-short-threshold:\t${BLAST_SHORT_THRESHOLD}\n\n## read identity\n-e|--excel|-b|--booking-sheet|--amplicon_book:\t${EXCEL}\n-n|-s|--sheetname|--sheet:\t${EXCEL_SHEETNAME}\n--metadata|--excel-tsv:\t${EXCEL_TSV}\n--excel-gene-pattern:\t${EXCEL_GENE_PATTERN}\n\n## crispresso2 wrapper options\n--crispresso-wrapper-version:\t${CRISPRESSO_WRAPPER_VERSION}\n--editor:\t${EDITOR}\n--amplicon_fasta_dir:\t${DIR_AMPLICON}\n" > ${DIR}/logfile/${PREFIX}_analyseNGS.log
 
 ## prep conda
 source "$(dirname ${CONDA%*/conda})/etc/profile.d/conda.sh"
@@ -332,7 +335,7 @@ if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${s
     f_id=${dir_identity}/${grp_id}.identity-ontarget.txt
     ## iterate through fastq-id/gene-id combos
     while read -r fastq_id gene_id; do
-        # echo "${fastq_id} ${gene_id}"
+        echo "${fastq_id} ${gene_id}"
         ## set variables shared by given fastq-id/gene-id combo
         sample_id=$(fastq2sample ${SAMPLE_ID_FORMAT} ${fastq_id})
         declare -A fastq_filtered=(
@@ -386,7 +389,7 @@ if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${s
     ${SCRIPT_DIR}/scripts/Crispresso2_wrapper/Crispresso2_wrapper_v${CRISPRESSO_WRAPPER_VERSION}.py \
                  --excel-tsv ${EXCEL_TSV} --PCR_Product_fa_gene_pattern "${EXCEL_GENE_PATTERN_DEFAULT}" \
                  --fastq_dir ${dir_demultiplex} --amplicon_fasta_dir ${DIR_AMPLICON} \
-                 --output_dir ${dir_crispresso}
+                 --output_dir ${dir_crispresso} --editor ${EDITOR}
     conda deactivate
 fi
 
