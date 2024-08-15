@@ -38,7 +38,7 @@ elif [[ "${HOSTNAME}" == 'chaelab2' ]]; then
     CONDA_DEFAULT=/media/HDD3/rachelle/programmes/Conda/miniconda3/bin/conda
 fi
 ## crispresso2 wrapper options
-CRISPRESSO_WRAPPER_VERSION_DEFAULT='4-2'
+CRISPRESSO_WRAPPER_VERSION_DEFAULT='4-3'
 EDITOR_DEFAULT=Cas9
 
 params=${@}
@@ -75,7 +75,7 @@ while (( "$#" )); do
         ## crispresso2 options
         --crispresso-wrapper-version) CRISPRESSO_WRAPPER_VERSION="${2}";; ## Crispresso2_wrapper version
         --amplicon|--amplicon_fasta_dir) DIR_AMPLICON=$(realpath "${2}");; ## directory of amplicon FASTA files
-        --editor) EDITOR="${2}";; ## valid values: ABE, Cas9
+        --editor) EDITOR="${2}";; ## valid values: ABE, Cas9, unknown
         ## misc paths
         --conda) CONDA="${2}";; ## path to conda executable
         -h|--help) man -l ${SCRIPT_DIR}/MANUAL_analyse_ngs.1; exit 0;;
@@ -386,6 +386,8 @@ if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${s
     echo "--Executing Crispresso2 on demultiplexed files--"
     if [[ "${EDITOR}" == 'ABE' ]]; then
         preset_args='--cleavage_offset -12 --quantification_window_size 6'
+    elif [[ "${EDITOR}" == 'unknown' ]]; then
+        preset_args='--screen-grna'
     fi
     conda activate crispresso2_env
     mkdir -p ${dir_crispresso}

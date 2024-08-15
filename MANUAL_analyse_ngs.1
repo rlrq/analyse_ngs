@@ -143,12 +143,13 @@ Maximum length for blastn-short task; trimmed reads longer that this will use bl
 Crispresso2_wrapper version (default=4)
 .TP
 .B \-\-editor \fI string
-Editor, used to inform cleavage site and editing window. Valid values: Cas9, ABE (default=Cas9)
+Editor, used to inform cleavage site and editing window. Valid values: Cas9, ABE, unknown (default=Cas9)
 .PP
 .nf
 .RS
 Cas9: <default CRISPResso2>
 ABE: \-\-cleavage_offset \-12 \-\-quantification_window_size 6
+unknown: <sets assessment window to span gRNA (+1 bp 3' if gRNA length is odd)>
 .RE
 .fi
 .TP
