@@ -1,4 +1,4 @@
-#!#!/usr/bin/env python3
+#!/usr/bin/env python3
 
 import argparse
 
@@ -31,24 +31,26 @@ from importlib.machinery import SourceFileLoader
 f2s = SourceFileLoader("f2s", f_fastq2sample).load_module()
 fastq2sample = f2s.fastq2sample(fmt = sample_id_format)
 
-f_metadata = "/media/HDD3/rachelle/scripts/analyse_ngs/test/test4/metadata/20240724_Ploop.tsv"
-f_fastq2sample = '/media/HDD3/rachelle/scripts/analyse_ngs/scripts/fastq2sample.py'
-gene_pattern = "[^_]+$"
-dir_crispresso = "/media/HDD3/rachelle/scripts/analyse_ngs/test/test4/crispresso/20240724_Ploop_trunc70"
+# f_metadata = "/media/HDD3/rachelle/scripts/analyse_ngs/test/test4/metadata/20240724_Ploop.tsv"
+# f_fastq2sample = '/media/HDD3/rachelle/scripts/analyse_ngs/scripts/fastq2sample.py'
+# gene_pattern = "[^_]+$"
+# dir_crispresso = "/media/HDD3/rachelle/scripts/analyse_ngs/test/test4/crispresso/20240724_Ploop_trunc70"
 
 
-with open(args.f_metadata, 'r') as f:
+with open(args.metadata, 'r') as f:
     header = f.readline().split('\t')
-    i_fastq = header.index("fastq")
+    i_fastq = header[:-1].index("fastq") ## strip newline and split
     i_pcr_product_fa = header.index("PCR_Product_fa")
+    i_guide = header.index("Guide")
     with open(args.fout, "w+") as fout:
         ## write header
-        fout.write('\t'.join(["fastq", "pcr_product_fa", "gene", "site", "ref", "alt", "mut", "freq"]) + '\t')
+        fout.write('\t'.join(["fastq", "pcr_product_fa", "gene", "guide", "site", "ref", "alt", "mut", "freq"]) + '\n')
         ## iterate through all samples
         for entry in f.readlines():
-            entry_split = entry.split('\t')
+            entry_split = entry[:-1].split('\t') ## strip newline and split
             fastq = entry_split[i_fastq]
             pcr_product_fa = entry_split[i_pcr_product_fa]
+            guide = entry_split[i_guide]
             sample_id = fastq2sample(fastq)
             gene = re.search(gene_pattern, pcr_product_fa).group(0)
             f_pct_table = os.path.join(
@@ -56,12 +58,12 @@ with open(args.f_metadata, 'r') as f:
                 f"CRISPResso_on_{sample_id}.{gene}.fwd_{sample_id}.{gene}.rvs",
                 f"{sample_id}.{gene}_{pcr_product_fa}.{pcr_product_fa}.Quantification_window_nucleotide_percentage_table.txt")
             if not os.path.exists(f_pct_table):
-                print( ("Could not find nucleotide percentage table for sample '{sample_id}'"
-                        " with PCR product '{pcr_product_fa}'. Skipping.") )
+                print( (f"Could not find nucleotide percentage table for sample '{sample_id}'"
+                        f" with PCR product '{pcr_product_fa}'. Skipping.") )
                 continue
             ## parse data
             with open(f_pct_table, 'r') as f:
-                reference = f.readline().split('\t')[1:]
+                reference = f.readline()[:-1].split('\t')[1:] ## strip newline, split, and remove empty first column
                 data = {}
                 for line in f:
                     split_line = line.split('\t')
@@ -71,40 +73,6 @@ with open(args.f_metadata, 'r') as f:
             for i, ref in enumerate(reference):
                 for alt, freq in data.items():
                     fout.write('\t'.join(
-                        map(str, [fastq, pcr_product_fa, gene, i+1, ref, alt, '-' if (ref==alt) else (ref+alt), freq[i]])) + '\n')
+                        map(str, [fastq, pcr_product_fa, gene, guide, i+1, ref, alt, '.' if (ref==alt) else (ref+alt), freq[i]])) + '\n')
 
-# ## write
-# with open(fout, "w+") as f:
-#     f.write('\t'.join(["Site", "Ref", "Alt", "Mut", "Freq"]) + '\t')
-#     for entry in output:
-#         f.write('\t'.join(map(str, entry)) + '\n')
-
-exit 0
-
-# fnames_pct_table = [f for f in os.listdir(dir_crispresso)
-#                     if re.search("Quantification_window_nucleotide_percentage_table.txt$", f)]
-
-# if len(fnames_pct_table) == 0:
-#     print("XXX.Quantification_window_nucleotide_percentage_table.txt not found. Exiting.")
-#     exit 1
-
-# with open(os.path.join(dir_crispresso, fnames_pct_table[0]), 'r') as f:
-#     reference = f.readline().split('\t')[1:]
-#     data = {}
-#     for line in f:
-#         split_line = line.split('\t')
-#         data[split_line[0]] = [float(x) for x in split_line[1:]]
-
-# ## columns: Site, Ref, Alt, Mut, Freq
-# output = []
-# for i, ref in enumerate(reference):
-#     for alt, freq in data.items():
-#         output.append([i+1, ref, alt, '-' if (ref==alt) else (ref+alt), freq[i]])
-
-# ## write
-# with open(fout, "w+") as f:
-#     f.write('\t'.join(["Site", "Ref", "Alt", "Mut", "Freq"]) + '\t')
-#     for entry in output:
-#         f.write('\t'.join(entry) + '\n')
-
-# exit 0
+exit(0)

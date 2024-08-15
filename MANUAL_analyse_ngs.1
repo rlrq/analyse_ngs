@@ -37,6 +37,9 @@ demultiplex FASTQ reads by gene
 .TP
 .B crispresso:
 execute Crispresso2 on demultiplexed FASTQ reads
+.TP
+.B mutation-table:
+reformat XXX.Quantification_window_nucleotide_percentage_table.txt output by Crispresso2 and merge across all samples into 1 file
 .SS Exit status:
 .TP
 .B 0
@@ -59,10 +62,10 @@ Print the README file and exit.
 .SS Execution Controls
 .TP
 .B \-\-skip\-to "," \-\-start\-at \fI string
-Specifies step to skip to. Valid values: derep, blast, intersect, id-seq, id-read, demultiplex, crispresso
+Specifies step to skip to. Valid values: derep, blast, intersect, id-seq, id-read, demultiplex, crispresso, mutation-table
 .TP
 .B \-\-stop\-at \fI string
-Specifies step to stop at. Valid values: derep, blast, intersect, id-seq, id-read, demultiplex, crispresso
+Specifies step to stop at. Valid values: derep, blast, intersect, id-seq, id-read, demultiplex, crispresso, mutation-table
 
 .SS General Parameters
 .TP

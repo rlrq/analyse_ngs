@@ -147,8 +147,8 @@ declare -A step_map=(
     [id-read]=6
     [demultiplex]=7
     [crispresso]=8
-    [mutation]=9
-    [end]=8
+    [mutation-table]=9
+    [end]=100
 )
 step_keys=( ${!step_map[@]} )
 # if [[ ! ${!step_map[@]} =~ ${SKIP_TO_STR} ]]; then
@@ -400,17 +400,20 @@ if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${s
     conda deactivate
 fi
 
-step="mutation"
+step="mutation-table"
 if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${step}]} ]]; then
     echo "--Making mutation table--"
     mkdir -p ${dir_mutation}
+    fout=${dir_mutation}/CRISPResso.Quantification_window_nucleotide_percentage_table.long.txt
     EXCEL_TSV=${dir_metadata}/${PREFIX}.tsv
     conda activate analyse_ngs
     ${SCRIPT_DIR}/scripts/make_mut_table.py \
-                 --crispresso-dir ${dir_crispresso} --out ${dir_mutation} \
-                 --fastq2sample ${SCRIPT_DIR}/scripts/fastq2sample.R \
+                 --metadata ${EXCEL_TSV} \
+                 --crispresso-dir ${dir_crispresso} \
+                 --out ${fout} \
+                 --fastq2sample ${SCRIPT_DIR}/scripts/fastq2sample.py \
                  --sample-id-format ${SAMPLE_ID_FORMAT} \
-                 --metadata ${EXCEL_TSV}
+                 --gene-pattern ${EXCEL_GENE_PATTERN}
     conda deactivate
 fi
 
