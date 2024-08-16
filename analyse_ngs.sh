@@ -404,7 +404,7 @@ step="mutation-table"
 if [[ ${SKIP_TO} -le ${step_map[${step}]} ]] && [[ ${STOP_AT} -ge ${step_map[${step}]} ]]; then
     echo "--Making mutation table--"
     mkdir -p ${dir_mutation}
-    fout=${dir_mutation}/CRISPResso.Quantification_window_nucleotide_percentage_table.long.txt
+    fout=${dir_mutation}/${PREFIX}.Quantification_window_nucleotide_percentage_table.long.txt
     EXCEL_TSV=${dir_metadata}/${PREFIX}.tsv
     conda activate analyse_ngs
     ${SCRIPT_DIR}/scripts/make_mut_table.py \

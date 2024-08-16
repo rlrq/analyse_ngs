@@ -38,32 +38,37 @@ fastq2sample = f2s.fastq2sample(fmt = sample_id_format)
 
 
 with open(args.metadata, 'r') as f:
-    header = f.readline().split('\t')
-    i_fastq = header[:-1].index("fastq") ## strip newline and split
+    header = f.readline()[:-1].split('\t') ## strip newline and split
+    i_fastq = header.index("fastq")
     i_pcr_product_fa = header.index("PCR_Product_fa")
+    i_accession_gene = header.index("accession/gene")
     i_guide = header.index("Guide")
     with open(args.fout, "w+") as fout:
         ## write header
-        fout.write('\t'.join(["fastq", "pcr_product_fa", "gene", "guide", "site", "ref", "alt", "mut", "freq"]) + '\n')
+        fout.write('\t'.join(["fastq", "accession_gene", "pcr_product_fa", "gene", "guide",
+                              "site", "ref", "alt", "mut", "freq"]) + '\n')
         ## iterate through all samples
         for entry in f.readlines():
             entry_split = entry[:-1].split('\t') ## strip newline and split
-            fastq = entry_split[i_fastq]
-            pcr_product_fa = entry_split[i_pcr_product_fa]
+            fastq = entry_split[i_fastq].strip()
+            pcr_product_fa = entry_split[i_pcr_product_fa].strip()
+            accession_gene = entry_split[i_accession_gene].strip()
             guide = entry_split[i_guide]
             sample_id = fastq2sample(fastq)
             gene = re.search(gene_pattern, pcr_product_fa).group(0)
             f_pct_table = os.path.join(
                 dir_crispresso, pcr_product_fa,
                 f"CRISPResso_on_{sample_id}.{gene}.fwd_{sample_id}.{gene}.rvs",
-                f"{sample_id}.{gene}_{pcr_product_fa}.{pcr_product_fa}.Quantification_window_nucleotide_percentage_table.txt")
+                (f"{sample_id}.{gene}_{pcr_product_fa}.{pcr_product_fa}."
+                 "Quantification_window_nucleotide_percentage_table.txt"))
             if not os.path.exists(f_pct_table):
                 print( (f"Could not find nucleotide percentage table for sample '{sample_id}'"
                         f" with PCR product '{pcr_product_fa}'. Skipping.") )
                 continue
             ## parse data
             with open(f_pct_table, 'r') as f:
-                reference = f.readline()[:-1].split('\t')[1:] ## strip newline, split, and remove empty first column
+                ## strip newline, split, and remove empty first column
+                reference = f.readline()[:-1].split('\t')[1:]
                 data = {}
                 for line in f:
                     split_line = line.split('\t')
@@ -73,6 +78,7 @@ with open(args.metadata, 'r') as f:
             for i, ref in enumerate(reference):
                 for alt, freq in data.items():
                     fout.write('\t'.join(
-                        map(str, [fastq, pcr_product_fa, gene, guide, i+1, ref, alt, '.' if (ref==alt) else (ref+alt), freq[i]])) + '\n')
+                        map(str, [fastq, accession_gene, pcr_product_fa, gene, guide,
+                                  i+1, ref, alt, '.' if (ref==alt) else (ref+alt), freq[i]])) + '\n')
 
 exit(0)
