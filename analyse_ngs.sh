@@ -5,7 +5,7 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 SCRIPT_NAME="$(basename "$0")"
 # DIR_SRC=/mnt/chaelab/rachelle/src
 
-# HOSTNAME=$(cat /etc/hostname)
+HOSTNAME=$(hostname)
 
 PREFIX_DEFAULT="analyseNGS"
 GZ_DEFAULT=1
@@ -33,7 +33,7 @@ BLAST_SHORT_THRESHOLD_DEFAULT=50
 EXCEL_GENE_PATTERN_DEFAULT='([^_]+)$'
 ## misc paths
 if [[ "${HOSTNAME}" == 'chaelab-ws.nus.edu.sg' ]]; then
-    CONDA_DEFAULT=/media/HDD3/rachelle/miniconda3/condabin/conda
+    CONDA_DEFAULT=/home/rachelle/miniconda3/condabin/conda
 elif [[ "${HOSTNAME}" == 'chaelab2' ]]; then
     CONDA_DEFAULT=/media/HDD3/rachelle/programmes/Conda/miniconda3/bin/conda
 fi
